@@ -33,6 +33,7 @@ public class RuleService {
             rule.setCondition(dataFormatter.formatCellValue(row.getCell(2)));
             rule.setConsequence(dataFormatter.formatCellValue(row.getCell(3)));
             rule.setDescription(dataFormatter.formatCellValue(row.getCell(4)));
+            rule.setApprovalType(dataFormatter.formatCellValue(row.getCell(5)));
 
             rules.add(rule);
         }

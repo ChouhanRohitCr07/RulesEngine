@@ -14,22 +14,26 @@ public class Rule {
     private String businessUnit;
 
     @Column(nullable = false, length = 500)
-    private String condition; // Stores the "when" condition as a string, e.g., "amount < 1000"
+    private String condition;
 
     @Column(nullable = false, length = 500)
-    private String consequence; // Stores the "then" action, e.g., "require_approval(manager)"
+    private String consequence;
 
     @Column(length = 1000)
     private String description;
 
+    @Column(nullable = false, length = 50)
+    private String approvalType; // New column for approval type
+
     // Constructors
     public Rule() {}
 
-    public Rule(String businessUnit, String condition, String consequence, String description) {
+    public Rule(String businessUnit, String condition, String consequence, String description, String approvalType) {
         this.businessUnit = businessUnit;
         this.condition = condition;
         this.consequence = consequence;
         this.description = description;
+        this.approvalType = approvalType;
     }
 
     // Getters and Setters
@@ -73,6 +77,14 @@ public class Rule {
         this.description = description;
     }
 
+    public String getApprovalType() {
+        return approvalType;
+    }
+
+    public void setApprovalType(String approvalType) {
+        this.approvalType = approvalType;
+    }
+
     @Override
     public String toString() {
         return "Rule{" +
@@ -81,6 +93,7 @@ public class Rule {
                 ", condition='" + condition + '\'' +
                 ", consequence='" + consequence + '\'' +
                 ", description='" + description + '\'' +
+                ", approvalType='" + approvalType + '\'' +
                 '}';
     }
 }

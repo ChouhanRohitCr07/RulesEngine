@@ -8,6 +8,7 @@ import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Scanner;
 
 @Service
 public class ApprovalService {
@@ -17,12 +18,6 @@ public class ApprovalService {
 
     private final ExpressionParser parser = new SpelExpressionParser();
 
-    /**
-     * Process approval based on the amount and business unit.
-     * @param amount the transaction amount
-     * @param businessUnit the business unit for the rule
-     * @return a message indicating the approval process
-     */
     public String processApproval(double amount, String businessUnit) {
         // Retrieve rules for the given business unit
         List<Rule> rules = ruleRepository.findByBusinessUnit(businessUnit);
@@ -33,27 +28,22 @@ public class ApprovalService {
         System.out.println(amount);
         System.out.println(businessUnit);
 
-        // Log the rules fetched for debugging
-        System.out.println("Number of rules found for business unit " + businessUnit + ": " + rules.size());
-
         if (rules.isEmpty()) {
             return "No rules found for the provided business unit.";
         }
 
         for (Rule rule : rules) {
             try {
-                // Substitute "amount" in the condition with the actual amount value
-                String conditionWithAmount = rule.getCondition().replace("amount", String.valueOf(amount));
-
-                // Log the modified condition for debugging
-                System.out.println("Evaluating condition: " + conditionWithAmount);
-
-                // Evaluate the modified condition directly
-                Boolean conditionMet = parser.parseExpression(conditionWithAmount).getValue(Boolean.class);
+                // Evaluate the condition
+                Boolean conditionMet = parser.parseExpression(rule.getCondition().replace("amount", String.valueOf(amount))).getValue(Boolean.class);
 
                 if (Boolean.TRUE.equals(conditionMet)) {
-                    // If the condition is met, execute the consequence
-                    return executeConsequence(rule.getConsequence());
+                    // Check approval type and call the appropriate handler
+                    if ("Sequential".equalsIgnoreCase(rule.getApprovalType())) {
+                        return handleSequentialApproval(rule.getConsequence());
+                    }
+                    // You can add handling for other approval types here, e.g., Parallel or Hierarchical
+                    return "Approval type '" + rule.getApprovalType() + "' is not implemented.";
                 }
             } catch (Exception e) {
                 System.err.println("Error evaluating condition '" + rule.getCondition() + "': " + e.getMessage());
@@ -63,27 +53,31 @@ public class ApprovalService {
         return "No applicable rule found for the provided conditions.";
     }
 
-    /**
-     * Parses and executes the consequence action.
-     * @param consequence the action defined in the rule
-     * @return a message indicating the approval action taken
-     */
-    private String executeConsequence(String consequence) {
-        // Example consequence format: "require_approval(manager, director)"
+    private String handleSequentialApproval(String consequence) {
         if (consequence.startsWith("require_approval(")) {
-            // Parse the approval levels from the consequence string
-            String approvalsString = consequence.substring("require_approval(".length(), consequence.length() - 1);
-            String[] approvals = approvalsString.split(", ");
+            String approversString = consequence.substring("require_approval(".length(), consequence.length() - 1);
+            String[] approvers = approversString.split(", ");
 
-            StringBuilder approvalChain = new StringBuilder("Approval process initiated: ");
-            for (String approval : approvals) {
-                approvalChain.append(approval.trim()).append(" -> ");
-                // Simulate actual approval requests here
+            for (String approver : approvers) {
+                // Simulate asking for user input for approval/rejection
+                boolean approved = requestApproval(approver.trim());
+
+                if (!approved) {
+                    return approver + " rejected the approval.";
+                }
             }
-            // Remove the trailing " -> "
-            approvalChain.setLength(approvalChain.length() - 4);
-            return approvalChain.toString();
+            return "All approvals completed successfully.";
         }
-        return "Unknown consequence action.";
+        return "Invalid consequence format.";
     }
+
+    private boolean requestApproval(String approver) {
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Approval required from: " + approver);
+        System.out.print("Approve or Reject (A/R): ");
+
+        String input = scanner.nextLine().trim().toUpperCase();
+        return "A".equals(input);
+    }
+
 }
