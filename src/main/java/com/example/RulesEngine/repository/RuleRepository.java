@@ -11,4 +11,7 @@ public interface RuleRepository extends JpaRepository<Rule, Long> {
 
     // Custom query method to find rules by business unit
     List<Rule> findByBusinessUnit(String business_unit);
+
+    Rule findByIdAndBusinessUnit(Long id, String businessUnit);
 }
+

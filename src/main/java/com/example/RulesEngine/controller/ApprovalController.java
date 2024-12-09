@@ -23,4 +23,19 @@ public class ApprovalController {
             @RequestParam String businessUnit) {
         return approvalService.processApproval(amount, businessUnit);
     }
+
+    /**
+     * Endpoint to handle approval input for a sequential approval process.
+     * @param ruleId the ID of the rule being approved
+     * @param approver the approver's name
+     * @param approved whether the approver approved or rejected
+     * @return a message indicating the approval status
+     */
+    @PostMapping("/input")
+    public String handleApprovalInput(
+            @RequestParam Long ruleId,
+            @RequestParam String approver,
+            @RequestParam boolean approved) {
+        return approvalService.handleApprovalInput(ruleId, approver, approved);
+    }
 }

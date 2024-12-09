@@ -7,8 +7,9 @@ import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
-import java.util.Scanner;
+import java.util.Map;
 
 @Service
 public class ApprovalService {
@@ -18,15 +19,12 @@ public class ApprovalService {
 
     private final ExpressionParser parser = new SpelExpressionParser();
 
+    // Store the approval state for each rule ID
+    private Map<Long, ApprovalState> approvalStates = new HashMap<>();
+
     public String processApproval(double amount, String businessUnit) {
         // Retrieve rules for the given business unit
         List<Rule> rules = ruleRepository.findByBusinessUnit(businessUnit);
-
-        for (int i = 0; i < rules.size(); i++) {
-            System.out.println(rules.get(i));
-        }
-        System.out.println(amount);
-        System.out.println(businessUnit);
 
         if (rules.isEmpty()) {
             return "No rules found for the provided business unit.";
@@ -40,9 +38,8 @@ public class ApprovalService {
                 if (Boolean.TRUE.equals(conditionMet)) {
                     // Check approval type and call the appropriate handler
                     if ("Sequential".equalsIgnoreCase(rule.getApprovalType())) {
-                        return handleSequentialApproval(rule.getConsequence());
+                        return startSequentialApproval(rule);
                     }
-                    // You can add handling for other approval types here, e.g., Parallel or Hierarchical
                     return "Approval type '" + rule.getApprovalType() + "' is not implemented.";
                 }
             } catch (Exception e) {
@@ -53,31 +50,45 @@ public class ApprovalService {
         return "No applicable rule found for the provided conditions.";
     }
 
-    private String handleSequentialApproval(String consequence) {
-        if (consequence.startsWith("require_approval(")) {
-            String approversString = consequence.substring("require_approval(".length(), consequence.length() - 1);
+    private String startSequentialApproval(Rule rule) {
+        // Parse the consequence to get the list of approvers
+        if (rule.getConsequence().startsWith("require_approval(")) {
+            String approversString = rule.getConsequence().substring("require_approval(".length(), rule.getConsequence().length() - 1);
             String[] approvers = approversString.split(", ");
 
-            for (String approver : approvers) {
-                // Simulate asking for user input for approval/rejection
-                boolean approved = requestApproval(approver.trim());
+            // Initialize the approval state
+            ApprovalState approvalState = new ApprovalState(rule.getId(), approvers);
+            approvalStates.put(rule.getId(), approvalState);
 
-                if (!approved) {
-                    return approver + " rejected the approval.";
-                }
-            }
-            return "All approvals completed successfully.";
+            return "Approval process started. Waiting for input from: " + approvalState.getCurrentApprover();
         }
         return "Invalid consequence format.";
     }
 
-    private boolean requestApproval(String approver) {
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("Approval required from: " + approver);
-        System.out.print("Approve or Reject (A/R): ");
+    public String handleApprovalInput(Long ruleId, String approver, boolean approved) {
+        ApprovalState approvalState = approvalStates.get(ruleId);
 
-        String input = scanner.nextLine().trim().toUpperCase();
-        return "A".equals(input);
+        if (approvalState == null) {
+            return "No active approval process for the provided rule ID.";
+        }
+
+        // Check if the current approver matches
+        String currentApprover = approvalState.getCurrentApprover();
+        if (!currentApprover.equals(approver)) {
+            return "Invalid approver. Waiting for input from: " + currentApprover;
+        }
+
+        // Handle the approval/rejection
+        if (approved) {
+            if (approvalState.advanceToNextApprover()) {
+                return "Approval granted by " + approver + ". Waiting for input from: " + approvalState.getCurrentApprover();
+            } else {
+                approvalStates.remove(ruleId); // Approval process completed
+                return "Approval process completed successfully.";
+            }
+        } else {
+            approvalStates.remove(ruleId); // Approval process terminated
+            return approver + " rejected the approval. Process terminated.";
+        }
     }
-
 }
